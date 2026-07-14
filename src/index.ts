@@ -14,3 +14,13 @@ export { jsonParseBigSafe } from './json';
 
 export { normalizeInternalTransaction, normalizeInternalTransactions } from './receipt';
 export type { NormalizedInternalTransaction } from './receipt';
+
+export {
+  nativeTxIdFromSignedBytes,
+  serializeSignedTransaction,
+  signBuiltTransaction,
+  buildCreate,
+  buildCall,
+  retryableTransportError,
+} from './tx';
+export type { BuiltTransaction, Signer, BuildCreateOptions, BuildCallOptions } from './tx';
