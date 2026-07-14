@@ -1,0 +1,39 @@
+name: Conformance (live TRE)
+
+# Phase 1.5 — mandatory, NON-SKIPPABLE. If the pinned TRE cannot boot or the
+# primitives disagree with java-tron, this job fails. It does not self-skip.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  conformance:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Boot pinned TRE
+        run: |
+          docker run -d --rm --name tre -p 127.0.0.1:9090:9090 \
+            -e accounts=10 -e defaultBalance=1000000000 \
+            -e mnemonic="test test test test test test test test test test test junk" \
+            -e "hdPath=m/44'/60'/0'/0" -e quiet=true \
+            tronbox/tre@sha256:e57deeb0d8201498549dbec28e7c329d8647ef0976b547cfbb6fa6a41a10f491
+      - name: Wait for TRE (fails the job if it never becomes ready)
+        run: |
+          for i in $(seq 1 60); do
+            if curl -s --max-time 4 -X POST http://127.0.0.1:9090/wallet/getnowblock | grep -q '"number"'; then
+              echo "TRE ready"; exit 0
+            fi
+            sleep 3
+          done
+          echo "TRE did not become ready"; docker logs tre | tail -50; exit 1
+      - name: Live-TRE conformance
+        run: npm run conformance
+        env:
+          TRON_RPC_URL: http://127.0.0.1:9090
