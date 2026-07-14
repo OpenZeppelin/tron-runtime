@@ -29,6 +29,8 @@ export interface NormalizedInternalTransaction {
   hash: string;
   callerAddress: string;
   transferToAddress: string;
+  /** Creation kind (e.g. `CREATE`/`CREATE2`) preserved verbatim when present, else `null`. */
+  kind: string | null;
   rawNote: string | null;
   decodedNote: string | null;
   valid: boolean;
@@ -49,6 +51,9 @@ export function normalizeInternalTransaction(transaction: unknown): NormalizedIn
     hash: normalizeHash(transaction.hash, 'internal transaction hash'),
     callerAddress: toEvmAddress(transaction.caller_address as string),
     transferToAddress: toEvmAddress(transaction.transferTo_address as string),
+    // Preserved verbatim so a consumer can reject unsupported CREATE2 without
+    // re-reading the raw receipt. Normalization never interprets it.
+    kind: typeof transaction.kind === 'string' ? transaction.kind : null,
     rawNote,
     decodedNote: rawNote === null ? null : decodeNote(rawNote),
     valid: rejected !== true,

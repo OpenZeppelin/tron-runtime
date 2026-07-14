@@ -26,6 +26,9 @@
     "build": "tsc -p tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
+    "check:package": "npm run build && node scripts/check-package-contents.mjs",
+    "audit:prod": "npm audit --omit=dev --audit-level=high",
+    "verify": "npm run typecheck && npm run build && npm test && npm run check:package",
     "prepack": "npm run build"
   },
   "dependencies": {

@@ -149,6 +149,20 @@ test('rejects a malformed (array-shaped) or unsuccessful prebuild wrapper', asyn
   await assert.rejects(buildCall(mockTronWeb(failWrapper).tronWeb, { contractAddress: CONTRACT_EVM, data: '0x12' }, SIGNER), /prebuild failed: nope/i);
 });
 
+test('accepts exact safe call values (bigint/string/number) and rejects lossy/invalid ones', async () => {
+  const max = Number.MAX_SAFE_INTEGER;
+  for (const value of [BigInt(max), String(max), max]) {
+    const { calls, tronWeb } = mockTronWeb();
+    await assert.rejects(buildCall(tronWeb, { contractAddress: CONTRACT_EVM, data: '0x12', callValue: value }, SIGNER), /BUILDER_REACHED/);
+    assert.equal((calls[0]!.options as { callValue: number }).callValue, max);
+  }
+  for (const value of [BigInt(max) + 1n, String(BigInt(max) + 1n), -1, 1.5, '1e3', null]) {
+    const { calls, tronWeb } = mockTronWeb();
+    await assert.rejects(buildCall(tronWeb, { contractAddress: CONTRACT_EVM, data: '0x12', callValue: value as never }, SIGNER), /call value/i);
+    assert.equal(calls.length, 0);
+  }
+});
+
 test('builds, signs and serializes offline with a real TronWeb (consistent txid)', async () => {
   const tronWeb = new TronWeb({ fullHost: 'http://127.0.0.1:9090', privateKey: PRIVATE_KEY });
   (tronWeb.trx as unknown as { getCurrentRefBlockParams: () => Promise<unknown> }).getCurrentRefBlockParams = async () => ({

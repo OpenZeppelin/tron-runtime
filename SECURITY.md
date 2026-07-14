@@ -18,5 +18,6 @@ Do not open public issues for security reports.
   and classification of internal transactions live in the consumers
   (`openzeppelin-foundry-upgrades-tron`, `hardhat-tron`), not here.
 - **Deterministic core.** Address derivation, canonical serialization, and
-  transaction-id derivation are pinned by deterministic test vectors and a
-  live-TRE conformance suite against a fixed java-tron digest.
+  transaction-id derivation are pinned by deterministic test vectors today, and
+  will additionally be pinned by a live-TRE conformance suite against a fixed
+  java-tron digest (planned — Phase 1.5 of the extraction plan; not yet present).

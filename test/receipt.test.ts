@@ -14,6 +14,7 @@ test('normalizes a create internal transaction to the canonical schema', () => {
     hash: HASH,
     caller_address: CALLER,
     transferTo_address: CHILD,
+    kind: 'CREATE',
     note: 'create',
     callValueInfo: [{ callValue: 1 }],
   });
@@ -21,11 +22,21 @@ test('normalizes a create internal transaction to the canonical schema', () => {
     hash: HASH,
     callerAddress: CALLER_EVM,
     transferToAddress: CHILD_EVM,
+    kind: 'CREATE',
     rawNote: 'create',
     decodedNote: 'create',
     valid: true,
     callValueInfo: [{ callValue: 1 }],
   });
+});
+
+test('preserves the creation kind verbatim (CREATE2) and null when absent/malformed', () => {
+  const create2 = normalizeInternalTransaction({ hash: HASH, caller_address: CALLER, transferTo_address: CHILD, kind: 'CREATE2', note: 'create' });
+  assert.equal(create2.kind, 'CREATE2');
+  const missing = normalizeInternalTransaction({ hash: HASH, caller_address: CALLER, transferTo_address: CHILD, note: 'create' });
+  assert.equal(missing.kind, null);
+  const malformed = normalizeInternalTransaction({ hash: HASH, caller_address: CALLER, transferTo_address: CHILD, kind: 2, note: 'create' });
+  assert.equal(malformed.kind, null);
 });
 
 test('decodes a hex-encoded note', () => {

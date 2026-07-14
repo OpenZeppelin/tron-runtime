@@ -78,9 +78,11 @@ test('rejects malformed, non-TRON, and non-string addresses', () => {
 
 // nativeContractAddress: pure keccak(txid ‖ 0x41‖owner)[12:] derivation.
 const TXID = 'a'.repeat(64);
-const GOLDEN_NATIVE = nativeContractAddress(TXID, EVM_ADDRESS);
+// Fixed vector, derived independently as keccak256(0x<txid> ‖ 0x41<owner>)[12:]
+// (owner = 0x1111…11). A regression that changes the derivation now fails.
+const GOLDEN_NATIVE = '0x8128847d59f3a78ad8344a3f5159048778702954';
 
-test('nativeContractAddress is a deterministic, well-formed EVM address', () => {
+test('nativeContractAddress matches the fixed golden vector', () => {
   assert.match(GOLDEN_NATIVE, /^0x[0-9a-f]{40}$/);
   assert.equal(nativeContractAddress(TXID, EVM_ADDRESS), GOLDEN_NATIVE);
   assert.equal(nativeContractAddress(`0x${TXID}`, EVM_ADDRESS), GOLDEN_NATIVE);
