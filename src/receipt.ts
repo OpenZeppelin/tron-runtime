@@ -3,6 +3,8 @@ import { toEvmAddress } from './address';
 const HASH_PATTERN = /^(?:0x)?[0-9a-f]{64}$/i;
 const HEX_PATTERN = /^(?:[0-9a-f]{2})+$/i;
 
+// ── Internal helpers ──────────────────────────────────────────────────────────
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -17,6 +19,8 @@ function normalizeHash(value: unknown, label: string): string {
 function decodeNote(note: string): string {
   return HEX_PATTERN.test(note) ? Buffer.from(note, 'hex').toString('utf8') : note;
 }
+
+// ── Public API ─────────────────────────────────────────────────────────────────
 
 /**
  * Canonical, classification-free view of one native internal transaction.
@@ -37,6 +41,17 @@ export interface NormalizedInternalTransaction {
   callValueInfo: unknown[];
 }
 
+/**
+ * Produce a canonical, classification-free view of one native internal transaction:
+ * addresses normalized to EVM form, hash to `0x` + 32 bytes, the `rejected` marker
+ * mapped to `valid`, and `kind`/`note` preserved verbatim (as `kind` and
+ * `rawNote`/`decodedNote`) so the consumer decides what counts as a CREATE.
+ *
+ * @param transaction - One raw `internal_transactions[]` entry from a node receipt.
+ * @returns The normalized internal transaction.
+ * @throws If `transaction` is not an object, its hash/addresses are invalid, or a
+ *   present `rejected` marker is not a boolean.
+ */
 export function normalizeInternalTransaction(transaction: unknown): NormalizedInternalTransaction {
   if (!isObject(transaction)) {
     throw new Error('Invalid native internal transaction');
@@ -61,7 +76,14 @@ export function normalizeInternalTransaction(transaction: unknown): NormalizedIn
   };
 }
 
-/** Normalize every native internal transaction — no filtering, no classification. */
+/**
+ * Normalize every native internal transaction in a receipt's trace — no filtering,
+ * no classification, exactly one output per input, in order.
+ *
+ * @param internalTransactions - The raw `internal_transactions` array from a node receipt.
+ * @returns The normalized entries, index-aligned with the input.
+ * @throws If the input is not an array, or any entry fails {@link normalizeInternalTransaction}.
+ */
 export function normalizeInternalTransactions(internalTransactions: unknown): NormalizedInternalTransaction[] {
   if (!Array.isArray(internalTransactions)) {
     throw new Error('Native internal transaction list is required');

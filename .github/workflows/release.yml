@@ -1,15 +1,15 @@
-name: Release (DISABLED — see notes)
+name: Release (DISABLED)
 
 # Intentionally NOT wired to tag pushes yet. Publishing the working directory
 # would re-run `prepack` and mint *new* bytes — it cannot prove the published
-# artifact is the exact tarball both consumers verified at the Phase 4.5 RC gate.
+# artifact is the exact tarball both consumers verified at the release-candidate gate.
 #
-# Before enabling, this must (per notes/tron-runtime-extraction-plan.md Phase 5):
+# Before enabling, this must:
 #   1. Trigger only on a release event carrying the SHA-pinned RC `.tgz`.
 #   2. Download that exact `.tgz` and verify its recorded SHA/integrity.
 #   3. Assert the git tag matches the package.json version.
 #   4. Make `npm audit --omit=dev --audit-level=high` a BLOCKING step
-#      (the transitive `ws` advisory must be resolved first — Phase 5.0).
+#      (the transitive `ws` advisory must be resolved first).
 #   5. `npm publish ./<verified>.tgz --provenance` — publish the file, not the dir.
 #
 # Manual-only stub until then; it does not publish.
@@ -22,5 +22,5 @@ jobs:
     steps:
       - run: |
           echo "Automated release is intentionally disabled."
-          echo "Publish the SHA-verified Phase 4.5 RC .tgz with --provenance, not the working directory."
+          echo "Publish the SHA-verified release-candidate .tgz with --provenance, not the working directory."
           exit 1

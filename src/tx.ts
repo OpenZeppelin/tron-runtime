@@ -6,6 +6,8 @@ import { toTronHexAddress } from './address';
 const TXID_PATTERN = /^(?:0x)?[0-9a-f]{64}$/i;
 const HEX_BYTES_PATTERN = /^(?:0x)?(?:[0-9a-f]{2})+$/i;
 
+// ── Internal helpers ──────────────────────────────────────────────────────────
+
 function isObject(value: unknown): value is Record<string, unknown> {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -118,63 +120,12 @@ function parseCanonicalSignedTransaction(signedNativeTransaction: string): { raw
   return { rawData, signatureCount };
 }
 
-/** Native transaction id = sha256(rawData) of a canonically-encoded signed tx. */
-export function nativeTxIdFromSignedBytes(signedNativeTransaction: string): string {
-  const { rawData } = parseCanonicalSignedTransaction(signedNativeTransaction);
-  return createHash('sha256').update(rawData).digest('hex');
-}
-
-// --- signing / serialization (stateless; tronweb utils, no node) ---
-
+// Minimal structural view of tronweb's signing utilities (its shipped types
+// under-describe the pieces we use).
 interface TronUtils {
   transaction: { txJsonToPb(tx: unknown): { addSignature(sig: Uint8Array): void; serializeBinary(): number[] } };
   code: { hexStr2byteArray(hex: string): number[] };
   bytes: { byteArray2hexStr(bytes: number[]): string };
-}
-
-/** Serialize a signed transaction JSON to hex and assert its embedded txID matches. */
-export function serializeSignedTransaction(transaction: unknown): string {
-  if (!isObject(transaction) || !Array.isArray(transaction.signature) || transaction.signature.length === 0) {
-    throw new Error('Native transaction is not signed');
-  }
-  const u = utils as unknown as TronUtils;
-  const protobuf = u.transaction.txJsonToPb(transaction);
-  for (const signature of transaction.signature) {
-    const normalized = stripHex(signature, 'native transaction signature', false);
-    protobuf.addSignature(Uint8Array.from(u.code.hexStr2byteArray(normalized)));
-  }
-  const serialized = u.bytes.byteArray2hexStr(protobuf.serializeBinary()).toLowerCase();
-  if (normalizeTxId((transaction as { txID?: unknown }).txID) !== nativeTxIdFromSignedBytes(serialized)) {
-    throw new Error('Native transaction ID mismatch');
-  }
-  return serialized;
-}
-
-export interface BuiltTransaction {
-  signedNativeTransaction: string;
-  nativeTransactionId: string;
-  transaction: unknown;
-}
-
-export interface Signer {
-  privateKey: string;
-  feeLimit: number;
-}
-
-export interface BuildCreateOptions {
-  abi: unknown[];
-  bytecode: string;
-  constructorData?: string;
-  ownerAddress?: string;
-  name?: string;
-  callValue?: number | string | bigint;
-}
-
-export interface BuildCallOptions {
-  contractAddress: string;
-  data?: string;
-  ownerAddress?: string;
-  callValue?: number | string | bigint;
 }
 
 // Minimal structural view of the injected TronWeb (its shipped types under-describe
@@ -230,7 +181,114 @@ function ownerHex(tronWeb: InjectedTronWeb, ownerAddress?: string): string {
   return toTronHexAddress(address);
 }
 
-/** Sign a built transaction JSON with the injected key and serialize it. */
+// ── Public API — types ──────────────────────────────────────────────────────────
+
+/** A built, signed transaction plus the bytes and id a consumer broadcasts/tracks. */
+export interface BuiltTransaction {
+  /** Signed transaction as lowercase hex (no `0x`) — broadcast these exact bytes. */
+  signedNativeTransaction: string;
+  /** The 64-char hex native transaction id derived from `signedNativeTransaction`. */
+  nativeTransactionId: string;
+  /** The signed transaction JSON as returned by TronWeb (opaque to consumers). */
+  transaction: unknown;
+}
+
+/** Signing material a build/sign call needs. Never stored, logged, or persisted by this package. */
+export interface Signer {
+  /** 64-hex-char private key (no `0x`). */
+  privateKey: string;
+  /** Positive fee limit, in sun, applied to the built transaction. */
+  feeLimit: number;
+}
+
+/** Options for {@link buildCreate} (a native `CreateSmartContract` deploy). */
+export interface BuildCreateOptions {
+  /** Contract ABI (required; may be empty for a bytecode-only deploy). */
+  abi: unknown[];
+  /** Creation bytecode as hex (optional `0x`). */
+  bytecode: string;
+  /** ABI-encoded constructor arguments as hex (optional `0x`); defaults to empty. */
+  constructorData?: string;
+  /** Deployer address in any accepted encoding; defaults to the injected TronWeb's default address. */
+  ownerAddress?: string;
+  /** Optional contract name recorded on-chain. */
+  name?: string;
+  /** Value in sun sent with creation; defaults to 0. */
+  callValue?: number | string | bigint;
+}
+
+/** Options for {@link buildCall} (a native `TriggerSmartContract` call). */
+export interface BuildCallOptions {
+  /** Target contract address in any accepted encoding. */
+  contractAddress: string;
+  /** ABI-encoded calldata as hex (optional `0x`); defaults to empty. */
+  data?: string;
+  /** Caller address in any accepted encoding; defaults to the injected TronWeb's default address. */
+  ownerAddress?: string;
+  /** Value in sun sent with the call; defaults to 0. */
+  callValue?: number | string | bigint;
+}
+
+// ── Public API — canonical id derivation ──────────────────────────────────────
+
+/**
+ * Re-derive a transaction's native id from its signed bytes: `sha256(raw_data)`
+ * of the canonically-encoded signed transaction.
+ *
+ * The bytes are parsed with a strict canonical protobuf/varint reader that rejects
+ * noncanonical, overlong, duplicate, or out-of-order encodings, so the id cannot be
+ * altered by re-encoding equivalent bytes.
+ *
+ * @param signedNativeTransaction - The signed transaction as hex (optional `0x`).
+ * @returns The 64-char lowercase hex transaction id (no `0x`).
+ * @throws If the input is not valid hex or not a canonical signed transaction.
+ */
+export function nativeTxIdFromSignedBytes(signedNativeTransaction: string): string {
+  const { rawData } = parseCanonicalSignedTransaction(signedNativeTransaction);
+  return createHash('sha256').update(rawData).digest('hex');
+}
+
+// ── Public API — signing / serialization (stateless; tronweb utils, no node) ──
+
+/**
+ * Serialize a signed transaction JSON (as returned by TronWeb signing) to the hex
+ * bytes a node accepts, and assert the transaction's embedded `txID` equals the id
+ * re-derived from those bytes — so a mismatched or tampered `txID` fails closed.
+ *
+ * @param transaction - A signed transaction JSON with a non-empty `signature` array and a `txID`.
+ * @returns The lowercase hex serialization (no `0x`).
+ * @throws If the transaction is unsigned/malformed, or its `txID` disagrees with the serialized bytes.
+ */
+export function serializeSignedTransaction(transaction: unknown): string {
+  if (!isObject(transaction) || !Array.isArray(transaction.signature) || transaction.signature.length === 0) {
+    throw new Error('Native transaction is not signed');
+  }
+  const u = utils as unknown as TronUtils;
+  const protobuf = u.transaction.txJsonToPb(transaction);
+  for (const signature of transaction.signature) {
+    const normalized = stripHex(signature, 'native transaction signature', false);
+    protobuf.addSignature(Uint8Array.from(u.code.hexStr2byteArray(normalized)));
+  }
+  const serialized = u.bytes.byteArray2hexStr(protobuf.serializeBinary()).toLowerCase();
+  if (normalizeTxId((transaction as { txID?: unknown }).txID) !== nativeTxIdFromSignedBytes(serialized)) {
+    throw new Error('Native transaction ID mismatch');
+  }
+  return serialized;
+}
+
+/**
+ * Sign a transaction builder's output JSON with the given key (via the injected
+ * TronWeb) and serialize it into broadcastable bytes.
+ *
+ * Stateless: uses only the injected TronWeb's signing/serialization utilities and
+ * makes no node calls of its own.
+ *
+ * @param tronWeb - A TronWeb instance providing signing utilities.
+ * @param transaction - The unsigned transaction JSON returned by a builder.
+ * @param privateKey - 64-hex-char signing key (no `0x`).
+ * @returns The signed bytes, derived id, and signed transaction JSON — see {@link BuiltTransaction}.
+ * @throws If the key is malformed, the transaction is missing, or the `txID` fails verification.
+ */
 export async function signBuiltTransaction(
   tronWeb: TronWeb,
   transaction: unknown,
@@ -248,7 +306,18 @@ export async function signBuiltTransaction(
   };
 }
 
-/** Build + sign a CreateSmartContract transaction (hits the node via the injected TronWeb). */
+/**
+ * Build and sign a native `CreateSmartContract` (contract deploy) transaction.
+ *
+ * Uses the injected TronWeb's transaction builder, which contacts the node to
+ * prebuild the transaction, then signs it locally.
+ *
+ * @param tronWeb - A TronWeb instance bound to the target node.
+ * @param options - Deploy inputs — see {@link BuildCreateOptions}.
+ * @param signer - Signing key + fee limit — see {@link Signer}.
+ * @returns The signed, broadcastable transaction — see {@link BuiltTransaction}.
+ * @throws If the signer or options are invalid, or the node fails to prebuild the transaction.
+ */
 export async function buildCreate(tronWeb: TronWeb, options: BuildCreateOptions, signer: Signer): Promise<BuiltTransaction> {
   const { privateKey, feeLimit } = assertSigner(signer);
   const opts = requireOptions<BuildCreateOptions>(options);
@@ -269,7 +338,18 @@ export async function buildCreate(tronWeb: TronWeb, options: BuildCreateOptions,
   return signBuiltTransaction(tronWeb, transaction, privateKey);
 }
 
-/** Build + sign a TriggerSmartContract transaction (hits the node via the injected TronWeb). */
+/**
+ * Build and sign a native `TriggerSmartContract` (contract call) transaction.
+ *
+ * Uses the injected TronWeb's transaction builder, which contacts the node to
+ * prebuild and pre-validate the call, then signs it locally.
+ *
+ * @param tronWeb - A TronWeb instance bound to the target node.
+ * @param options - Call inputs — see {@link BuildCallOptions}.
+ * @param signer - Signing key + fee limit — see {@link Signer}.
+ * @returns The signed, broadcastable transaction — see {@link BuiltTransaction}.
+ * @throws If the signer or options are invalid, or the node reports the call prebuild failed.
+ */
 export async function buildCall(tronWeb: TronWeb, options: BuildCallOptions, signer: Signer): Promise<BuiltTransaction> {
   const { privateKey, feeLimit } = assertSigner(signer);
   const opts = requireOptions<BuildCallOptions>(options);
@@ -295,7 +375,7 @@ export async function buildCall(tronWeb: TronWeb, options: BuildCallOptions, sig
   return signBuiltTransaction(tronWeb, (wrapper as { transaction?: unknown }).transaction, privateKey);
 }
 
-// --- transport-error classification (pure) ---
+// ── Public API — transport-error classification (pure) ──────────────────────────
 
 const RETRYABLE_NETWORK_CODES = new Set([
   'EAI_AGAIN',
@@ -319,7 +399,18 @@ function numericHttpStatus(error: Record<string, unknown>): number | undefined {
   return undefined;
 }
 
-/** Classify whether a transport/node error is worth retrying. Walks `.cause` with a cycle guard. */
+/**
+ * Classify whether a transport/node error is transient and worth retrying, rather
+ * than a definitive failure. Retryable HTTP statuses (408, 429, 5xx), known
+ * transient network error codes, and timeout/socket/network messages count as
+ * retryable; the error's `.cause` chain is walked with a cycle guard.
+ *
+ * A pure heuristic — it decides nothing about retry budgets or backoff; that
+ * policy stays with the consumer.
+ *
+ * @param error - Any thrown or rejected value from a transport or node call.
+ * @returns `true` if the error looks transient and retryable, otherwise `false`.
+ */
 export function retryableTransportError(error: unknown): boolean {
   const seen = new Set<unknown>();
   let current: unknown = error;

@@ -16,10 +16,34 @@ const SAFE_LIMIT = 9007199254740992n; // 2^53
 const PRESCAN_RE = /\d{16,}/;
 const INTEGER_TOKEN_RE = /^-?\d+$/;
 
+// ── Internal helpers ──────────────────────────────────────────────────────────
+
 function isDigit(code: number): boolean {
   return code >= 48 && code <= 57;
 }
 
+// ── Public API ─────────────────────────────────────────────────────────────────
+
+/**
+ * Parse JSON like `JSON.parse`, but preserve integer precision for TVM responses.
+ *
+ * TVM transaction-info responses embed integers up to `Long.MAX_VALUE`
+ * (~9.22e18 sun) as raw JSON numbers, which `JSON.parse` quantizes to the nearest
+ * IEEE-754 double (e.g. `999999999999999999` reads back as `1000000000000000000`).
+ * This wraps every JSON *integer* token whose magnitude is >= 2^53 in quotes before
+ * parsing, so downstream readers can do `BigInt(value)` losslessly — wrapping is
+ * non-breaking because `BigInt` accepts both strings and numbers. Floats/exponents
+ * are left untouched (BigInt cannot represent them).
+ *
+ * The rewrite is JSON-aware (it never touches digits inside string literals) and
+ * fail-closed: the original text is validated with `JSON.parse` first, so invalid
+ * JSON is rejected rather than silently "repaired".
+ *
+ * @param text - The JSON text to parse.
+ * @returns The parsed value, with integers >= 2^53 rendered as decimal strings.
+ * @throws {TypeError} If `text` is not a string.
+ * @throws {SyntaxError} If `text` is not valid JSON.
+ */
 export function jsonParseBigSafe(text: string): unknown {
   if (typeof text !== 'string') {
     throw new TypeError('jsonParseBigSafe expects a string');

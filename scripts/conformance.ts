@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Live-TRE conformance for @openzeppelin/tron-runtime (Phase 1.5).
+// Live-TRE conformance for @openzeppelin/tron-runtime.
 //
 // Exercises the extracted primitives against a REAL java-tron node: build + sign
 // through the injected TronWeb, broadcast the exact signed bytes, confirm the node

@@ -1,6 +1,6 @@
 name: Conformance (live TRE)
 
-# Phase 1.5 — mandatory, NON-SKIPPABLE. If the pinned TRE cannot boot or the
+# Mandatory, NON-SKIPPABLE conformance gate. If the pinned TRE cannot boot or the
 # primitives disagree with java-tron, this job fails. It does not self-skip.
 on:
   push:
