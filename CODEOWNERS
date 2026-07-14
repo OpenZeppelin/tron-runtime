@@ -1,0 +1,4 @@
+# Code owners for @openzeppelin/tron-runtime.
+# TODO: replace with the real owning team handle before the repo is created on GitHub.
+# This package is signing-adjacent — require review from the TRON tooling owners.
+* @nahim-terrazas
