@@ -194,6 +194,36 @@ interface InjectedTronWeb {
   };
 }
 
+const PRIVATE_KEY_PATTERN = /^[0-9a-f]{64}$/i;
+
+function assertPrivateKey(privateKey: unknown): string {
+  if (typeof privateKey !== 'string' || !PRIVATE_KEY_PATTERN.test(privateKey)) {
+    throw new Error('Invalid signer private key');
+  }
+  return privateKey;
+}
+
+// The origin validated the signer (64-hex key + positive safe-integer feeLimit) in its
+// constructor before any build/sign. Replicate that fail-closed check here.
+function assertSigner(signer: unknown): Signer {
+  if (
+    !isObject(signer) ||
+    typeof signer.privateKey !== 'string' ||
+    !PRIVATE_KEY_PATTERN.test(signer.privateKey) ||
+    !Number.isSafeInteger(signer.feeLimit) ||
+    (signer.feeLimit as number) <= 0
+  ) {
+    throw new Error('Invalid signer');
+  }
+  return signer as unknown as Signer;
+}
+
+// The origin methods defaulted a missing options argument to `{}` then issued domain
+// errors; preserve that instead of a raw TypeError on a missing options object.
+function requireOptions<T>(options: unknown): T {
+  return (isObject(options) ? options : {}) as T;
+}
+
 function ownerHex(tronWeb: InjectedTronWeb, ownerAddress?: string): string {
   const address = ownerAddress ?? (tronWeb.defaultAddress?.hex || undefined);
   if (typeof address !== 'string') throw new Error('No owner address available');
@@ -206,6 +236,7 @@ export async function signBuiltTransaction(
   transaction: unknown,
   privateKey: string,
 ): Promise<BuiltTransaction> {
+  assertPrivateKey(privateKey);
   if (!isObject(transaction)) throw new Error('Native transaction builder returned no transaction');
   const tw = tronWeb as unknown as InjectedTronWeb;
   const signed = await tw.trx.sign(transaction, privateKey);
@@ -219,42 +250,49 @@ export async function signBuiltTransaction(
 
 /** Build + sign a CreateSmartContract transaction (hits the node via the injected TronWeb). */
 export async function buildCreate(tronWeb: TronWeb, options: BuildCreateOptions, signer: Signer): Promise<BuiltTransaction> {
-  if (!Array.isArray(options.abi)) throw new Error('Invalid contract ABI');
+  const { privateKey, feeLimit } = assertSigner(signer);
+  const opts = requireOptions<BuildCreateOptions>(options);
+  if (!Array.isArray(opts.abi)) throw new Error('Invalid contract ABI');
   const tw = tronWeb as unknown as InjectedTronWeb;
   const transaction = await tw.transactionBuilder.createSmartContract(
     {
-      abi: options.abi,
-      bytecode: stripHex(options.bytecode, 'contract bytecode', false),
-      callValue: normalizeCallValue(options.callValue ?? 0),
-      feeLimit: signer.feeLimit,
-      name: options.name ?? '',
-      rawParameter: stripHex(options.constructorData ?? '', 'constructor data'),
+      abi: opts.abi,
+      bytecode: stripHex(opts.bytecode, 'contract bytecode', false),
+      // `=== undefined` (not `??`) so an explicit `null` fails closed, as the origin did.
+      callValue: normalizeCallValue(opts.callValue === undefined ? 0 : opts.callValue),
+      feeLimit,
+      name: opts.name === undefined ? '' : opts.name,
+      rawParameter: stripHex(opts.constructorData === undefined ? '' : opts.constructorData, 'constructor data'),
     },
-    ownerHex(tw, options.ownerAddress),
+    ownerHex(tw, opts.ownerAddress),
   );
-  return signBuiltTransaction(tronWeb, transaction, signer.privateKey);
+  return signBuiltTransaction(tronWeb, transaction, privateKey);
 }
 
 /** Build + sign a TriggerSmartContract transaction (hits the node via the injected TronWeb). */
 export async function buildCall(tronWeb: TronWeb, options: BuildCallOptions, signer: Signer): Promise<BuiltTransaction> {
+  const { privateKey, feeLimit } = assertSigner(signer);
+  const opts = requireOptions<BuildCallOptions>(options);
   const tw = tronWeb as unknown as InjectedTronWeb;
   const wrapper = await tw.transactionBuilder.triggerSmartContract(
-    toTronHexAddress(options.contractAddress),
+    toTronHexAddress(opts.contractAddress),
     '',
     {
-      callValue: normalizeCallValue(options.callValue ?? 0),
-      feeLimit: signer.feeLimit,
-      input: stripHex(options.data ?? '', 'call data'),
+      callValue: normalizeCallValue(opts.callValue === undefined ? 0 : opts.callValue),
+      feeLimit,
+      input: stripHex(opts.data === undefined ? '' : opts.data, 'call data'),
       txLocal: true,
     },
     [],
-    ownerHex(tw, options.ownerAddress),
+    ownerHex(tw, opts.ownerAddress),
   );
-  if (wrapper?.result?.result !== true) {
-    const message = wrapper?.result?.message ? `: ${wrapper.result.message}` : '';
-    throw new Error(`Native call prebuild failed${message}`);
+  // isObject excludes arrays/functions/null — the origin's wrapper-shape guard.
+  if (!isObject(wrapper)) throw new Error('Native call prebuild failed');
+  const result = (wrapper as { result?: { result?: boolean; message?: string } }).result;
+  if (result?.result !== true) {
+    throw new Error(`Native call prebuild failed${result?.message ? `: ${result.message}` : ''}`);
   }
-  return signBuiltTransaction(tronWeb, wrapper.transaction, signer.privateKey);
+  return signBuiltTransaction(tronWeb, (wrapper as { transaction?: unknown }).transaction, privateKey);
 }
 
 // --- transport-error classification (pure) ---
