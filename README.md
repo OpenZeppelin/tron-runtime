@@ -12,7 +12,7 @@ internal transactions; each consumer keeps those, because Foundry waits for
 solidified inclusion while `hardhat-tron` uses unconfirmed receipts and
 recovery-mines on TRE.
 
-> Status: pre-release, unpublished. See `notes/tron-runtime-extraction-plan.md`.
+> Status: pre-release (`0.1.0-alpha`), not yet published to npm.
 
 ## License
 

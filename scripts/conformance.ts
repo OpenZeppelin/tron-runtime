@@ -11,7 +11,14 @@
 import assert from 'node:assert/strict';
 import { TronWeb } from 'tronweb';
 
-import { buildCreate, nativeTxIdFromSignedBytes, normalizeInternalTransactions } from '../src/index';
+// Load the COMPILED package through its own export map (require → dist/index.js),
+// NOT the TypeScript source. This gate must exercise exactly what a consumer
+// installs: the emitted CommonJS and the `exports` resolution. The
+// `typeof import('../src/index')` cast keeps compile-time types bound to source
+// (so typecheck still covers this script) without importing source at runtime.
+// `npm run conformance` builds `dist` first, so this resolves.
+const { buildCreate, nativeTxIdFromSignedBytes, normalizeInternalTransactions } =
+  require('@openzeppelin/tron-runtime') as typeof import('../src/index');
 
 const RPC = process.env.TRON_RPC_URL;
 // A funded TRE dev account (tronbox/tre default). Never used on a real network.
@@ -74,19 +81,33 @@ async function main(): Promise<void> {
   assert.equal(info.receipt?.result, 'SUCCESS', `deploy did not succeed: ${String(info.receipt?.result)}`);
 
   const internal = info.internal_transactions ?? [];
-  assert.ok(internal.length >= 1, 'expected a non-empty internal-transaction trace from the factory initcode');
+  // The factory constructor performs EXACTLY two internal CREATEs — one that
+  // succeeds and one that reverts — so this trace has a fixed, asserted shape.
+  assert.equal(internal.length, 2, `expected exactly two internal CREATEs; got ${internal.length}`);
 
   // 5. normalize the REAL trace and validate the canonical fields
   const normalized = normalizeInternalTransactions(internal);
   assert.equal(normalized.length, internal.length, 'normalization keeps every entry (no classification/filtering)');
   for (const tx of normalized) {
+    assert.match(tx.hash, /^0x[0-9a-f]{64}$/, 'internal-tx hash normalized to 0x + 32 bytes');
     assert.match(tx.callerAddress, /^0x[0-9a-f]{40}$/, 'caller normalized to an EVM address');
     assert.match(tx.transferToAddress, /^0x[0-9a-f]{40}$/, 'created child normalized to an EVM address');
-    assert.equal(typeof tx.valid, 'boolean', 'validity flag present');
+    assert.equal(tx.decodedNote, 'create', `expected a decoded CREATE note; got ${String(tx.decodedNote)}`);
+    assert.ok(Array.isArray(tx.callValueInfo), 'callValueInfo normalized to an array');
   }
-  assert.ok(
-    normalized.some((tx) => tx.decodedNote === 'create'),
-    `expected at least one decoded CREATE note; got ${JSON.stringify(normalized.map((t) => t.decodedNote))}`,
+  // The rejected marker MUST be normalized per-entry: exactly one accepted CREATE
+  // (valid === true) and exactly one rejected CREATE (valid === false). A regression
+  // that maps both entries to the same validity would pass a `typeof === boolean`
+  // check but fails here.
+  assert.equal(
+    normalized.filter((tx) => tx.valid === true).length,
+    1,
+    `expected exactly one accepted (valid) internal CREATE; got ${JSON.stringify(normalized.map((t) => t.valid))}`,
+  );
+  assert.equal(
+    normalized.filter((tx) => tx.valid === false).length,
+    1,
+    `expected exactly one rejected (invalid) internal CREATE; got ${JSON.stringify(normalized.map((t) => t.valid))}`,
   );
 
   console.log(`✓ live-TRE conformance passed against ${base}`);

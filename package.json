@@ -27,7 +27,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --import tsx --test test/*.test.ts",
     "check:package": "npm run build && node --import tsx scripts/check-package-contents.ts",
-    "conformance": "node --import tsx scripts/conformance.ts",
+    "conformance": "npm run build && node --import tsx scripts/conformance.ts",
     "audit:prod": "npm audit --omit=dev --audit-level=high",
     "verify": "npm run typecheck && npm run build && npm test && npm run check:package",
     "prepack": "npm run build"
