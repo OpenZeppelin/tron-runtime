@@ -11,3 +11,6 @@ export {
 export type { NormalizedAddress } from './address';
 
 export { jsonParseBigSafe } from './json';
+
+export { normalizeInternalTransaction, normalizeInternalTransactions } from './receipt';
+export type { NormalizedInternalTransaction } from './receipt';

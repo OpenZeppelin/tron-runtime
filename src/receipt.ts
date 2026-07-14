@@ -1,0 +1,65 @@
+import { toEvmAddress } from './address';
+
+const HASH_PATTERN = /^(?:0x)?[0-9a-f]{64}$/i;
+const HEX_PATTERN = /^(?:[0-9a-f]{2})+$/i;
+
+function isObject(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function normalizeHash(value: unknown, label: string): string {
+  if (typeof value !== 'string' || !HASH_PATTERN.test(value)) {
+    throw new Error(`Invalid ${label}`);
+  }
+  return `0x${value.replace(/^0x/i, '').toLowerCase()}`;
+}
+
+function decodeNote(note: string): string {
+  return HEX_PATTERN.test(note) ? Buffer.from(note, 'hex').toString('utf8') : note;
+}
+
+/**
+ * Canonical, classification-free view of one native internal transaction.
+ * `rawNote`/`decodedNote` are `null` when the node's `note` is absent or not a
+ * string — so a consumer can *classify* (e.g. "is this a CREATE?") and fail
+ * closed on a malformed note. This module never decides what counts as a
+ * CREATE attempt; that is consumer policy.
+ */
+export interface NormalizedInternalTransaction {
+  hash: string;
+  callerAddress: string;
+  transferToAddress: string;
+  rawNote: string | null;
+  decodedNote: string | null;
+  valid: boolean;
+  callValueInfo: unknown[];
+}
+
+export function normalizeInternalTransaction(transaction: unknown): NormalizedInternalTransaction {
+  if (!isObject(transaction)) {
+    throw new Error('Invalid native internal transaction');
+  }
+  const rejected = transaction.rejected;
+  if (rejected !== undefined && typeof rejected !== 'boolean') {
+    throw new Error('Invalid native internal transaction rejected marker');
+  }
+  const note = transaction.note;
+  const rawNote = typeof note === 'string' ? note : null;
+  return {
+    hash: normalizeHash(transaction.hash, 'internal transaction hash'),
+    callerAddress: toEvmAddress(transaction.caller_address as string),
+    transferToAddress: toEvmAddress(transaction.transferTo_address as string),
+    rawNote,
+    decodedNote: rawNote === null ? null : decodeNote(rawNote),
+    valid: rejected !== true,
+    callValueInfo: Array.isArray(transaction.callValueInfo) ? structuredClone(transaction.callValueInfo) : [],
+  };
+}
+
+/** Normalize every native internal transaction — no filtering, no classification. */
+export function normalizeInternalTransactions(internalTransactions: unknown): NormalizedInternalTransaction[] {
+  if (!Array.isArray(internalTransactions)) {
+    throw new Error('Native internal transaction list is required');
+  }
+  return internalTransactions.map(normalizeInternalTransaction);
+}
