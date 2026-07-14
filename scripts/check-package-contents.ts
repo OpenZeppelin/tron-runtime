@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 // Assert the packed tarball ships exactly the runtime artifacts — no source,
-// tests, tsconfig, or stray files. Run after `npm run build`.
+// tests, tsconfig, scripts, or stray files. Run after `npm run build`.
 import { execFileSync } from 'node:child_process';
+
+interface PackedFile {
+  path: string;
+}
+interface PackResult {
+  files: PackedFile[];
+}
 
 const EXPECTED = [
   'LICENSE',
@@ -21,10 +28,17 @@ const EXPECTED = [
 ].sort();
 
 const raw = execFileSync('npm', ['pack', '--dry-run', '--json'], { encoding: 'utf8' });
-const files = JSON.parse(raw)[0].files.map((f) => f.path).sort();
+const parsed = JSON.parse(raw) as PackResult[];
+const files = parsed[0]!.files.map((f) => f.path).sort();
 
 const forbidden = files.filter(
-  (f) => f.startsWith('src/') || f.startsWith('test/') || f.startsWith('scripts/') || f.startsWith('.github/') || f.startsWith('tsconfig') || (f.endsWith('.ts') && !f.endsWith('.d.ts')),
+  (f) =>
+    f.startsWith('src/') ||
+    f.startsWith('test/') ||
+    f.startsWith('scripts/') ||
+    f.startsWith('.github/') ||
+    f.startsWith('tsconfig') ||
+    (f.endsWith('.ts') && !f.endsWith('.d.ts')),
 );
 if (forbidden.length > 0) {
   console.error('❌ Forbidden files in package tarball:', forbidden);
