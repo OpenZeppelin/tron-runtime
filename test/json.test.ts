@@ -53,6 +53,14 @@ test('does not wrap a quoted large integer or a float/exponent', () => {
   assert.equal(typeof f.e, 'number');
 });
 
+test('rejects invalid JSON instead of repairing it into valid JSON', () => {
+  // A leading-zero number and an unquoted numeric key are both JSON syntax errors.
+  // The rewrite must not quote them into validity.
+  assert.throws(() => jsonParseBigSafe('{"n":01234567890123456789}'), SyntaxError);
+  assert.throws(() => jsonParseBigSafe('{12345678901234567:"v"}'), SyntaxError);
+  assert.throws(() => jsonParseBigSafe('{"a":1234567890123456,}'), SyntaxError); // trailing comma
+});
+
 test('preserves object keys that look like large numbers', () => {
   const parsed = jsonParseBigSafe('{"12345678901234567":"v","n":99999999999999999999}') as Record<string, unknown>;
   assert.equal(parsed['12345678901234567'], 'v');

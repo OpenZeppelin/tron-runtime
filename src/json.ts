@@ -28,6 +28,11 @@ export function jsonParseBigSafe(text: string): unknown {
   if (!PRESCAN_RE.test(text)) {
     return JSON.parse(text);
   }
+  // Validate the ORIGINAL text first (result discarded — it is lossy on big ints).
+  // Without this, the lexical rewrite could "repair" invalid JSON — e.g. quote a
+  // leading-zero number or an unquoted numeric object key — turning a syntax error
+  // into a silent success. JSON.parse rejects those here.
+  JSON.parse(text);
   const n = text.length;
   let out = '';
   let i = 0;

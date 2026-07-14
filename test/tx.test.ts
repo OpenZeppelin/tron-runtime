@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 import { TronWeb } from 'tronweb';
@@ -7,11 +6,12 @@ import { TronWeb } from 'tronweb';
 import { toTronHexAddress } from '../src/address';
 import { buildCall, buildCreate, nativeTxIdFromSignedBytes, retryableTransportError } from '../src/tx';
 
-// ---- canonical signed-tx / txid vectors ----
+// ---- canonical signed-tx / txid vectors (pinned literals, independent of the code under test) ----
 const RAW_DATA = 'deadbeef';
 const SIG = 'ab'.repeat(65);
 const SIGNED = `0a04${RAW_DATA}1241${SIG}`;
-const EXPECTED_TXID = createHash('sha256').update(Buffer.from(RAW_DATA, 'hex')).digest('hex');
+// Fixed golden: sha256 of the raw_data bytes (0xdeadbeef).
+const EXPECTED_TXID = '5f78c33274e43fa9de5659265c1d917e25c03722dcb0b8d27db8d5feaa813953';
 
 test('derives the native txid as sha256(raw_data) from canonical signed bytes', () => {
   assert.equal(nativeTxIdFromSignedBytes(SIGNED), EXPECTED_TXID);
@@ -163,7 +163,13 @@ test('accepts exact safe call values (bigint/string/number) and rejects lossy/in
   }
 });
 
-test('builds, signs and serializes offline with a real TronWeb (consistent txid)', async () => {
+// Pinned deterministic golden for the full offline build → sign → serialize path
+// (fixed key + fixed ref-block params + fixed inputs; tronweb signs deterministically).
+const GOLDEN_BUILD_TXID = 'a8390d0c944d7d8475dcc95972efecdcdf75d5f9fccccbec2085ade60f74d836';
+const GOLDEN_BUILD_BYTES =
+  '0aad010a0212342208010203040506070840e0a499ffbc315a8701081e1282010a30747970652e676f6f676c65617069732e636f6d2f70726f746f636f6c2e437265617465536d617274436f6e7472616374124e0a15411a642f0e3c3af545e7acbd38b07251b3990914f112350a15411a642f0e3c3af545e7acbd38b07251b3990914f11a060a0430014004220460001234280a30643a0545786163744080ade2047080d095ffbc3190018094ebdc031241e8ede96f3cf7ef51c5c9d03eab170a374122c6f2294fd4622a07d7ebb45c1571006638a94134763c4a5ffddba95b4f33f75765ba7171bb510a10d3960412d6b91c';
+
+test('builds, signs and serializes offline to a pinned deterministic vector', async () => {
   const tronWeb = new TronWeb({ fullHost: 'http://127.0.0.1:9090', privateKey: PRIVATE_KEY });
   (tronWeb.trx as unknown as { getCurrentRefBlockParams: () => Promise<unknown> }).getCurrentRefBlockParams = async () => ({
     ref_block_bytes: '1234',
@@ -176,7 +182,8 @@ test('builds, signs and serializes offline with a real TronWeb (consistent txid)
     { abi: [{ type: 'constructor', inputs: [], stateMutability: 'payable' }], bytecode: '0x6000', constructorData: '0x1234', name: 'Exact', callValue: '10' },
     SIGNER,
   );
-  assert.match(built.signedNativeTransaction, /^[0-9a-f]+$/);
-  assert.equal(built.nativeTransactionId, nativeTxIdFromSignedBytes(built.signedNativeTransaction));
-  assert.equal(built.nativeTransactionId, (built.transaction as { txID: string }).txID);
+  assert.equal(built.signedNativeTransaction, GOLDEN_BUILD_BYTES);
+  assert.equal(built.nativeTransactionId, GOLDEN_BUILD_TXID);
+  assert.equal(nativeTxIdFromSignedBytes(built.signedNativeTransaction), GOLDEN_BUILD_TXID);
+  assert.equal((built.transaction as { txID: string }).txID, GOLDEN_BUILD_TXID);
 });
