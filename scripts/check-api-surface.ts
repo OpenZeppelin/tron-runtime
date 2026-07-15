@@ -21,15 +21,29 @@ const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { ve
 
 // Loaded via the export map (require -> dist/index.js); `npm run check:api` builds first.
 const runtime = require('@openzeppelin/tron-runtime') as Record<string, unknown>;
-const actual = Object.keys(runtime)
-  .filter((k) => typeof runtime[k] === 'function')
-  .sort();
+// ALL runtime value exports — not just functions — so a stray public const/class is caught too.
+const actual = Object.keys(runtime).sort();
 const declared = inventory.functions.map((f) => f.name).sort();
 
 assert.deepEqual(
   actual,
   declared,
-  `runtime function exports differ from api-inventory.json\n  actual:   ${actual.join(', ')}\n  declared: ${declared.join(', ')}`,
+  `runtime value exports differ from api-inventory.json\n  actual:   ${actual.join(', ')}\n  declared: ${declared.join(', ')}`,
+);
+
+// Type surface: the generated barrel .d.ts must export exactly the declared type names
+// (catches an ADDED untracked type; types are erased at runtime so `actual` can't see them).
+const dts = readFileSync(join(root, 'dist', 'index.d.ts'), 'utf8');
+const exportedTypes = [...dts.matchAll(/export\s+type\s*\{([^}]*)\}/g)]
+  .flatMap((m) => m[1]!.split(','))
+  .map((s) => s.trim().replace(/^\w+\s+as\s+/, '').trim())
+  .filter(Boolean)
+  .sort();
+const declaredTypes = inventory.types.map((t) => t.name).sort();
+assert.deepEqual(
+  exportedTypes,
+  declaredTypes,
+  `exported types in dist/index.d.ts differ from api-inventory.json\n  actual:   ${exportedTypes.join(', ')}\n  declared: ${declaredTypes.join(', ')}`,
 );
 
 // SemVer prerelease is the segment after `-`, ignoring `+build` metadata — so

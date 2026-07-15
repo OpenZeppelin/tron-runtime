@@ -33,9 +33,7 @@ const EXPECTED_FUNCTIONS = [
 ].sort();
 
 test('public export set is exactly the declared surface (15 functions)', () => {
-  const actual = Object.keys(api)
-    .filter((k) => typeof (api as Record<string, unknown>)[k] === 'function')
-    .sort();
+  const actual = Object.keys(api).sort(); // ALL value exports, not just functions
   assert.deepEqual(actual, EXPECTED_FUNCTIONS);
 });
 

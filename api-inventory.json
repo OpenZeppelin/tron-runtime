@@ -7,7 +7,7 @@
     { "name": "toBase58Address", "tier": "stable", "evidence": "address codec; runtime==gateway byte-identical" },
     { "name": "serializeSignedTransaction", "tier": "stable", "evidence": "canonical protobuf; deterministic vectors + live-TRE" },
     { "name": "nativeTxIdFromSignedBytes", "tier": "stable", "evidence": "sha256(raw_data); deterministic vectors + live-TRE" },
-    { "name": "jsonParseBigSafe", "tier": "stable", "evidence": "hardhat has an established equivalent; e2e 8/8 byte-identical on real TVM inputs" },
+    { "name": "jsonParseBigSafe", "tier": "stable", "evidence": "hardhat has an established equivalent; compat exercise: parsed-value equivalence on representative TVM-shaped payloads (not captured real fixtures)" },
     { "name": "decodeInternalTransactionNote", "tier": "stable", "evidence": "shared receipt primitive; classifies nothing" },
     { "name": "normalizeAddress", "tier": "provisional", "evidence": "aggregate convenience; no consumer import yet" },
     { "name": "nativeContractAddress", "tier": "provisional", "evidence": "Foundry-only; hardhat trusts TronWeb's contract_address" },

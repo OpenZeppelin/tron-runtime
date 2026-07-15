@@ -39,14 +39,18 @@
     "conformance": "npm run build && node --import tsx scripts/conformance.ts",
     "audit:prod": "npm audit --omit=dev --audit-level=high",
     "verify": "npm run typecheck && npm run build && npm test && npm run check:package && npm run check:api",
-    "prepack": "npm run build"
+    "prepack": "npm run build",
+    "prepublishOnly": "npm run check:api"
   },
   "dependencies": {
-    "ethers": "^6.14.0",
+    "ethers": "^6.14.0"
+  },
+  "peerDependencies": {
     "tronweb": "^6.4.0"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
+    "tronweb": "6.4.0",
     "tsx": "^4.19.0",
     "typescript": "^5.5.0"
   }

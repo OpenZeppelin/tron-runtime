@@ -23,6 +23,7 @@ jobs:
       - run: npm run build
       - run: npm test
       - run: npm run check:package
+      - run: npm run check:api
       # Informational until the transitive `ws` advisory under tronweb is triaged
       # and resolved before publish. Do not force-downgrade blindly.
       - name: Production dependency audit
