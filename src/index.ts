@@ -20,7 +20,7 @@ export { jsonParseBigSafe } from './json';
 // ── Stable — neutral receipt note decoder (the shared receipt primitive) ──
 export { decodeInternalTransactionNote } from './receipt';
 
-// ── Provisional — may change/relocate/be removed before stable 0.1.0 (see the extraction plan) ──
+// ── Provisional — may change/relocate/be removed before a stable 0.1.0 ──
 export { normalizeAddress, nativeContractAddress } from './address';
 export { buildCreate, buildCall, signBuiltTransaction, retryableTransportError } from './tx';
 export { normalizeInternalTransaction, normalizeInternalTransactions } from './receipt';

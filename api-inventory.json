@@ -1,6 +1,6 @@
 {
   "package": "@openzeppelin/tron-runtime",
-  "note": "Machine-readable public API surface. tier = stable | provisional. scripts/check-api-surface.ts asserts the built package's runtime exports match this file exactly, and fails a non-prerelease (stable) publish while any export is still provisional (the 4.5.0 release gate).",
+  "note": "Machine-readable public API surface. tier = stable | provisional. scripts/check-api-surface.ts asserts the built package's runtime exports match this file exactly, and fails a non-prerelease (stable) publish while any export is still provisional (the release gate).",
   "functions": [
     { "name": "toEvmAddress", "tier": "stable", "evidence": "address codec; runtime==gateway byte-identical; e2e adapter match" },
     { "name": "toTronHexAddress", "tier": "stable", "evidence": "address codec; runtime==gateway byte-identical" },
@@ -15,8 +15,8 @@
     { "name": "buildCall", "tier": "provisional", "evidence": "gateway class-method today; option shape unproven by a consumer PR" },
     { "name": "signBuiltTransaction", "tier": "provisional", "evidence": "internal composition step; no external consumer yet" },
     { "name": "retryableTransportError", "tier": "provisional", "evidence": "policy-adjacent; hardhat uses a different heuristic" },
-    { "name": "normalizeInternalTransaction", "tier": "provisional", "evidence": "shape breaks hardhat; demote/redesign before release (3a.4)" },
-    { "name": "normalizeInternalTransactions", "tier": "provisional", "evidence": "shape breaks hardhat; demote/redesign before release (3a.4)" }
+    { "name": "normalizeInternalTransaction", "tier": "provisional", "evidence": "shape breaks hardhat; demote/redesign before release" },
+    { "name": "normalizeInternalTransactions", "tier": "provisional", "evidence": "shape breaks hardhat; demote/redesign before release" }
   ],
   "types": [
     { "name": "NormalizedAddress", "tier": "provisional" },

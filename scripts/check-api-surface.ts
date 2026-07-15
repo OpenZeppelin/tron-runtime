@@ -5,7 +5,7 @@
 //     loaded through the export map (require -> dist/index.js) — so accidental
 //     additions/removals to the public surface fail CI.
 // (2) A non-prerelease (stable) version cannot ship while any export is still
-//     `provisional` — the mechanical form of the 4.5.0 release gate.
+//     `provisional` — the release gate that blocks a stable publish.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -56,7 +56,7 @@ const provisional = [
 if (!isPrerelease && provisional.length > 0) {
   throw new Error(
     `release gate: version ${pkg.version} is stable but ${provisional.length} export(s) are still provisional: ` +
-      `${provisional.join(', ')}. Prove / redesign / remove them from the root first (4.5.0).`,
+      `${provisional.join(', ')}. Prove / redesign / remove them from the root first.`,
   );
 }
 
