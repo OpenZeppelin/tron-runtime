@@ -1,0 +1,44 @@
+{
+  "name": "@openzeppelin/tron-runtime",
+  "version": "0.1.0-alpha.0",
+  "description": "Shared stateless native-TRON transport primitives for OpenZeppelin TRON tooling",
+  "license": "MIT",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "require": "./dist/index.js",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "SECURITY.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --import tsx --test test/*.test.ts",
+    "check:package": "npm run build && node --import tsx scripts/check-package-contents.ts",
+    "conformance": "npm run build && node --import tsx scripts/conformance.ts",
+    "audit:prod": "npm audit --omit=dev --audit-level=high",
+    "verify": "npm run typecheck && npm run build && npm test && npm run check:package",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "ethers": "^6.14.0",
+    "tronweb": "^6.4.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0"
+  }
+}
