@@ -19,11 +19,11 @@
     { "name": "normalizeInternalTransactions", "tier": "provisional", "evidence": "shape breaks hardhat; demote/redesign before release (3a.4)" }
   ],
   "types": [
-    "NormalizedAddress",
-    "BuiltTransaction",
-    "Signer",
-    "BuildCreateOptions",
-    "BuildCallOptions",
-    "NormalizedInternalTransaction"
+    { "name": "NormalizedAddress", "tier": "provisional" },
+    { "name": "BuiltTransaction", "tier": "provisional" },
+    { "name": "Signer", "tier": "provisional" },
+    { "name": "BuildCreateOptions", "tier": "provisional" },
+    { "name": "BuildCallOptions", "tier": "provisional" },
+    { "name": "NormalizedInternalTransaction", "tier": "provisional" }
   ]
 }

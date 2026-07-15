@@ -17,7 +17,10 @@ function normalizeHash(value: unknown, label: string): string {
 }
 
 function decodeNote(note: string): string {
-  return HEX_PATTERN.test(note) ? Buffer.from(note, 'hex').toString('utf8') : note;
+  // Tolerate an optional `0x` prefix: java-tron emits unprefixed hex, but a prefixed
+  // form would otherwise pass through undecoded and hide a CREATE marker from consumers.
+  const hex = note.replace(/^0x/i, '');
+  return HEX_PATTERN.test(hex) ? Buffer.from(hex, 'hex').toString('utf8') : note;
 }
 
 // ── Public API ─────────────────────────────────────────────────────────────────

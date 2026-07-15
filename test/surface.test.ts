@@ -41,6 +41,7 @@ test('public export set is exactly the declared surface (15 functions)', () => {
 
 test('decodeInternalTransactionNote decodes hex, passes non-hex through, fails closed on non-strings', () => {
   assert.equal(api.decodeInternalTransactionNote('637265617465'), 'create'); // hex("create")
+  assert.equal(api.decodeInternalTransactionNote('0x637265617465'), 'create'); // tolerates 0x prefix
   assert.equal(api.decodeInternalTransactionNote('create'), 'create'); // non-hex passthrough
   assert.equal(api.decodeInternalTransactionNote(undefined), null);
   assert.equal(api.decodeInternalTransactionNote(123), null);

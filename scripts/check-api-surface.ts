@@ -12,7 +12,7 @@ import { join } from 'node:path';
 
 interface Inventory {
   functions: { name: string; tier: 'stable' | 'provisional' }[];
-  types: string[];
+  types: { name: string; tier: 'stable' | 'provisional' }[];
 }
 
 const root = join(__dirname, '..');
@@ -32,8 +32,13 @@ assert.deepEqual(
   `runtime function exports differ from api-inventory.json\n  actual:   ${actual.join(', ')}\n  declared: ${declared.join(', ')}`,
 );
 
-const isPrerelease = pkg.version.includes('-');
-const provisional = inventory.functions.filter((f) => f.tier === 'provisional').map((f) => f.name);
+// SemVer prerelease is the segment after `-`, ignoring `+build` metadata — so
+// `1.0.0+build-1` (a hyphen only in build metadata) is a STABLE release, not a prerelease.
+const isPrerelease = pkg.version.split('+')[0]!.includes('-');
+const provisional = [
+  ...inventory.functions.filter((f) => f.tier === 'provisional').map((f) => f.name),
+  ...inventory.types.filter((t) => t.tier === 'provisional').map((t) => `${t.name} (type)`),
+];
 if (!isPrerelease && provisional.length > 0) {
   throw new Error(
     `release gate: version ${pkg.version} is stable but ${provisional.length} export(s) are still provisional: ` +
