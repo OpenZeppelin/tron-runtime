@@ -1,0 +1,29 @@
+{
+  "package": "@openzeppelin/tron-runtime",
+  "note": "Machine-readable public API surface. tier = stable | provisional. scripts/check-api-surface.ts asserts the built package's runtime exports match this file exactly, and fails a non-prerelease (stable) publish while any export is still provisional (the 4.5.0 release gate).",
+  "functions": [
+    { "name": "toEvmAddress", "tier": "stable", "evidence": "address codec; runtime==gateway byte-identical; e2e adapter match" },
+    { "name": "toTronHexAddress", "tier": "stable", "evidence": "address codec; runtime==gateway byte-identical" },
+    { "name": "toBase58Address", "tier": "stable", "evidence": "address codec; runtime==gateway byte-identical" },
+    { "name": "serializeSignedTransaction", "tier": "stable", "evidence": "canonical protobuf; deterministic vectors + live-TRE" },
+    { "name": "nativeTxIdFromSignedBytes", "tier": "stable", "evidence": "sha256(raw_data); deterministic vectors + live-TRE" },
+    { "name": "jsonParseBigSafe", "tier": "stable", "evidence": "hardhat has an established equivalent; e2e 8/8 byte-identical on real TVM inputs" },
+    { "name": "decodeInternalTransactionNote", "tier": "stable", "evidence": "shared receipt primitive; classifies nothing" },
+    { "name": "normalizeAddress", "tier": "provisional", "evidence": "aggregate convenience; no consumer import yet" },
+    { "name": "nativeContractAddress", "tier": "provisional", "evidence": "Foundry-only; hardhat trusts TronWeb's contract_address" },
+    { "name": "buildCreate", "tier": "provisional", "evidence": "gateway class-method today; option shape unproven by a consumer PR" },
+    { "name": "buildCall", "tier": "provisional", "evidence": "gateway class-method today; option shape unproven by a consumer PR" },
+    { "name": "signBuiltTransaction", "tier": "provisional", "evidence": "internal composition step; no external consumer yet" },
+    { "name": "retryableTransportError", "tier": "provisional", "evidence": "policy-adjacent; hardhat uses a different heuristic" },
+    { "name": "normalizeInternalTransaction", "tier": "provisional", "evidence": "shape breaks hardhat; demote/redesign before release (3a.4)" },
+    { "name": "normalizeInternalTransactions", "tier": "provisional", "evidence": "shape breaks hardhat; demote/redesign before release (3a.4)" }
+  ],
+  "types": [
+    "NormalizedAddress",
+    "BuiltTransaction",
+    "Signer",
+    "BuildCreateOptions",
+    "BuildCallOptions",
+    "NormalizedInternalTransaction"
+  ]
+}

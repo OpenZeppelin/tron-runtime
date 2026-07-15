@@ -95,20 +95,19 @@ async function main(): Promise<void> {
     assert.equal(tx.decodedNote, 'create', `expected a decoded CREATE note; got ${String(tx.decodedNote)}`);
     assert.ok(Array.isArray(tx.callValueInfo), 'callValueInfo normalized to an array');
   }
-  // The rejected marker MUST be normalized per-entry: exactly one accepted CREATE
-  // (valid === true) and exactly one rejected CREATE (valid === false). A regression
-  // that maps both entries to the same validity would pass a `typeof === boolean`
-  // check but fails here.
-  assert.equal(
-    normalized.filter((tx) => tx.valid === true).length,
-    1,
-    `expected exactly one accepted (valid) internal CREATE; got ${JSON.stringify(normalized.map((t) => t.valid))}`,
-  );
-  assert.equal(
-    normalized.filter((tx) => tx.valid === false).length,
-    1,
-    `expected exactly one rejected (invalid) internal CREATE; got ${JSON.stringify(normalized.map((t) => t.valid))}`,
-  );
+  // The rejected marker MUST be mapped per-entry — not merely counted. Correlate
+  // each normalized entry back to its RAW entry by hash and assert
+  // `valid === (rejected !== true)`. A reversed mapper (`valid = rejected === true`)
+  // would satisfy a bare valid/invalid count but FAILS this correlation.
+  for (const raw of internal as Array<Record<string, unknown>>) {
+    const rawHash = `0x${String(raw.hash).replace(/^0x/i, '').toLowerCase()}`;
+    const match = normalized.find((tx) => tx.hash === rawHash);
+    assert.ok(match, `no normalized entry correlates to raw hash ${String(raw.hash)}`);
+    assert.equal(match.valid, raw.rejected !== true, `valid must equal (rejected !== true) for ${rawHash}`);
+  }
+  // The factory produces exactly one accepted + one rejected CREATE.
+  assert.equal(normalized.filter((tx) => tx.valid).length, 1, 'expected exactly one accepted internal CREATE');
+  assert.equal(normalized.filter((tx) => !tx.valid).length, 1, 'expected exactly one rejected internal CREATE');
 
   console.log(`✓ live-TRE conformance passed against ${base}`);
   console.log(

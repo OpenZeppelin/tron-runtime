@@ -1,9 +1,10 @@
 # @openzeppelin/tron-runtime
 
-Shared, dependency-neutral **stateless** native-TRON transport primitives —
+Shared, **framework-neutral**, **stateless** native-TRON transport primitives —
 address codecs, native transaction construction, canonical serialization +
-transaction-id derivation, native-receipt normalization, BigInt-safe JSON, and
-transport-error classification.
+transaction-id derivation, native-receipt note decoding, BigInt-safe JSON, and
+transport-error classification. (Framework-neutral w.r.t. Foundry / Hardhat /
+`upgrades-core`; it does depend on `tronweb` + `ethers`.)
 
 Consumed by both the Foundry gateway (`openzeppelin-foundry-upgrades-tron`) and
 `hardhat-tron`. It contains **mechanism only** — it never owns *policy*
@@ -12,54 +13,46 @@ internal transactions; each consumer keeps those, because Foundry waits for
 solidified inclusion while `hardhat-tron` uses unconfirmed receipts and
 recovery-mines on TRE.
 
-> Status: pre-release (`0.1.0-alpha`), not yet published to npm.
+> **Status: `0.1.0-alpha`** — pre-1.0, not published, no adopted consumer yet.
+> The exports below are grouped by stability: **Provisional** exports may change,
+> relocate, or be removed before a stable `0.1.0` — only the **Stable** group is a
+> settled contract. Requires Node **`>=22`**.
 
 ## Public API
 
-There is a single entry point — import the primitives you need:
+Single entry point (deep imports into `dist/*` are unsupported):
 
 ```ts
-import { buildCreate, toEvmAddress, nativeTxIdFromSignedBytes } from '@openzeppelin/tron-runtime';
+import { toEvmAddress, jsonParseBigSafe } from '@openzeppelin/tron-runtime';
 ```
 
-Everything listed below is the **full supported surface**. Anything not listed
-is an internal helper and may change without a breaking release. Each export
-carries TSDoc (parameters, return value, and thrown errors) that your editor
-surfaces on hover.
+Each export carries TSDoc (parameters / return value / thrown errors) your editor surfaces on hover.
 
-### Address codecs & derivation
+### Stable
 
 | Export | Purpose |
 | --- | --- |
-| `toEvmAddress(address)` | Convert any accepted encoding to an EVM `0x`-address. |
-| `toTronHexAddress(address)` | Convert to TRON hex form (`41…`, no `0x`). |
-| `toBase58Address(address)` | Convert to checksum-valid Base58 (`T…`). |
-| `normalizeAddress(address)` | Return all three forms at once: `{ evm, tronHex, base58 }`. |
-| `nativeContractAddress(txid, owner)` | Derive the address a native deploy creates. |
-
-### Native transactions
-
-| Export | Purpose |
-| --- | --- |
-| `buildCreate(tronWeb, options, signer)` | Build + sign a `CreateSmartContract` (contract deploy). |
-| `buildCall(tronWeb, options, signer)` | Build + sign a `TriggerSmartContract` (contract call). |
-| `signBuiltTransaction(tronWeb, tx, key)` | Sign a builder's output JSON and serialize it. |
-| `serializeSignedTransaction(tx)` | Serialize a signed transaction to hex; verify its `txID`. |
+| `toEvmAddress(a)` · `toTronHexAddress(a)` · `toBase58Address(a)` | Address codecs — EVM `0x` (**lowercase**, canonical) / TRON `41…` / Base58 `T…`; consumers adapt casing (e.g. `ethers.getAddress(...)`). |
+| `serializeSignedTransaction(tx)` | Serialize a signed transaction to hex; verify its embedded `txID`. |
 | `nativeTxIdFromSignedBytes(bytes)` | Re-derive the txid from canonical signed bytes. |
-| `retryableTransportError(error)` | Heuristic: is a transport/node error transient and retryable? |
+| `jsonParseBigSafe(text)` | `JSON.parse` that preserves integers ≥ 2^53 in TVM responses. |
+| `decodeInternalTransactionNote(note)` | Decode a raw internal-tx `note` to UTF-8 (`null` if absent/non-string) — the shared receipt primitive. |
 
-### Receipts & JSON
+### Provisional — may change/relocate/be removed before a stable `0.1.0`
 
 | Export | Purpose |
 | --- | --- |
-| `normalizeInternalTransactions(list)` | Normalize a receipt's internal-transaction trace (no filtering/classification). |
-| `normalizeInternalTransaction(entry)` | Normalize a single internal transaction. |
-| `jsonParseBigSafe(text)` | `JSON.parse` that preserves integers ≥ 2^53 in TVM responses. |
+| `buildCreate(tronWeb, opts, signer)` | Build **and sign** a `CreateSmartContract` (contract deploy). |
+| `buildCall(tronWeb, opts, signer)` | Build **and sign** a `TriggerSmartContract` (contract call). |
+| `signBuiltTransaction(tronWeb, tx, key)` | Sign a builder's output JSON and serialize it. |
+| `retryableTransportError(error)` | Heuristic: is a transport/node error transient and retryable? |
+| `normalizeAddress(a)` | Return all three address forms at once: `{ evm, tronHex, base58 }`. |
+| `nativeContractAddress(txid, owner)` | Derive the address a native deploy creates. |
+| `normalizeInternalTransaction(s)(…)` | Normalize a receipt's internal-tx trace (shape under cross-consumer redesign). |
 
-### Types
-
-`NormalizedAddress`, `BuiltTransaction`, `Signer`, `BuildCreateOptions`,
-`BuildCallOptions`, `NormalizedInternalTransaction`.
+Types (provisional alongside their functions): `NormalizedAddress`,
+`BuiltTransaction`, `Signer`, `BuildCreateOptions`, `BuildCallOptions`,
+`NormalizedInternalTransaction`.
 
 ## Design
 
