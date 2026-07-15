@@ -19,6 +19,25 @@ const root = join(__dirname, '..');
 const inventory = JSON.parse(readFileSync(join(root, 'api-inventory.json'), 'utf8')) as Inventory;
 const pkg = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { version: string };
 
+// Validate the inventory at runtime — the `as Inventory` cast is a compile-time
+// fiction that trusts the JSON. Without this, a mistyped tier (e.g. "provisionl")
+// would silently drop an entry from the provisional set below and let a stable
+// release pass the gate. Every entry must have a non-empty name and a known tier.
+const VALID_TIERS = new Set(['stable', 'provisional']);
+for (const kind of ['functions', 'types'] as const) {
+  assert(Array.isArray(inventory[kind]), `api-inventory.json: "${kind}" must be an array`);
+  for (const entry of inventory[kind]) {
+    assert(
+      typeof entry?.name === 'string' && entry.name.length > 0,
+      `api-inventory.json: an entry in "${kind}" is missing a non-empty "name"`,
+    );
+    assert(
+      VALID_TIERS.has(entry.tier),
+      `api-inventory.json: entry "${entry.name}" has an invalid tier ${JSON.stringify(entry.tier)} (expected "stable" or "provisional")`,
+    );
+  }
+}
+
 // Loaded via the export map (require -> dist/index.js); `npm run check:api` builds first.
 const runtime = require('@openzeppelin/tron-runtime') as Record<string, unknown>;
 // ALL runtime value exports — not just functions — so a stray public const/class is caught too.
@@ -34,11 +53,21 @@ assert.deepEqual(
 // Type surface: the generated barrel .d.ts must export exactly the declared type names
 // (catches an ADDED untracked type; types are erased at runtime so `actual` can't see them).
 const dts = readFileSync(join(root, 'dist', 'index.d.ts'), 'utf8');
-const exportedTypes = [...dts.matchAll(/export\s+type\s*\{([^}]*)\}/g)]
-  .flatMap((m) => m[1]!.split(','))
-  .map((s) => s.trim().replace(/^\w+\s+as\s+/, '').trim())
-  .filter(Boolean)
-  .sort();
+const typeNames = new Set<string>();
+// Braced type re-exports: `export type { A, B as C }`.
+for (const m of dts.matchAll(/export\s+type\s*\{([^}]*)\}/g)) {
+  for (const part of m[1]!.split(',')) {
+    const name = part.trim().replace(/^\w+\s+as\s+/, '').trim();
+    if (name) typeNames.add(name);
+  }
+}
+// Direct type declarations: `export interface X`, `export type X = ...`, `export enum X`
+// (optionally `declare`). Without this, an added `export interface` would bypass the
+// type-surface diff entirely — the braced-only scan never saw it.
+for (const m of dts.matchAll(/export\s+(?:declare\s+)?(?:interface|type|enum)\s+([A-Za-z_$][\w$]*)/g)) {
+  typeNames.add(m[1]!);
+}
+const exportedTypes = [...typeNames].sort();
 const declaredTypes = inventory.types.map((t) => t.name).sort();
 assert.deepEqual(
   exportedTypes,
