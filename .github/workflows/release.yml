@@ -1,26 +1,78 @@
-name: Release (DISABLED)
+name: Release
 
-# Intentionally NOT wired to tag pushes yet. Publishing the working directory
-# would re-run `prepack` and mint *new* bytes — it cannot prove the published
-# artifact is the exact tarball both consumers verified at the release-candidate gate.
-#
-# Before enabling, this must:
-#   1. Trigger only on a release event carrying the SHA-pinned RC `.tgz`.
-#   2. Download that exact `.tgz` and verify its recorded SHA/integrity.
-#   3. Assert the git tag matches the package.json version.
-#   4. Make `npm audit --omit=dev --audit-level=high` a BLOCKING step
-#      (the transitive `ws` advisory must be resolved first).
-#   5. `npm publish ./<verified>.tgz --provenance` — publish the file, not the dir.
-#
-# Manual-only stub until then; it does not publish.
+# Publishes the EXACT release-candidate tarball attached to the GitHub release —
+# never a rebuild. Publishing a working directory would re-run `prepack` and mint
+# new bytes, so nothing could prove the published artifact is the tarball the
+# consumers verified. Publishing uses npm trusted publishing (OIDC provenance);
+# there is deliberately no token secret in this workflow — it can only publish
+# once the npm side is configured for this repository + workflow.
 on:
-  workflow_dispatch:
+  release:
+    types: [published]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # npm --provenance (OIDC)
 
 jobs:
-  guard:
+  publish:
     runs-on: ubuntu-latest
     steps:
-      - run: |
-          echo "Automated release is intentionally disabled."
-          echo "Publish the SHA-verified release-candidate .tgz with --provenance, not the working directory."
-          exit 1
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - name: Git tag matches package.json version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          VERSION="$(jq -r .version package.json)"
+          test "$TAG" = "v$VERSION" || { echo "tag $TAG does not match package.json v$VERSION"; exit 1; }
+      # `npm publish <file>` does NOT run prepublishOnly, so the API-surface /
+      # stable-release gate must be invoked explicitly against the tag's source —
+      # otherwise a stable version with provisional exports could slip out.
+      - run: npm run check:api
+      - name: Production dependency audit (blocking)
+        run: npm audit --omit=dev --audit-level=high
+      - name: Download the release-candidate assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          mkdir -p rc && cd rc
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.tgz' --pattern '*.tgz.sha256'
+          COUNT="$(ls -1 -- *.tgz 2>/dev/null | wc -l)"
+          test "$COUNT" -eq 1 || { echo "expected exactly one .tgz release asset, found $COUNT"; exit 1; }
+      - name: Tarball is byte-identical to the recorded candidate
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          cd rc
+          sha256sum --check --strict -- *.tgz.sha256
+          TGZ="$(ls -1 -- *.tgz)"
+          PACKED_VERSION="$(tar -xzOf "$TGZ" package/package.json | jq -r .version)"
+          test "$TAG" = "v$PACKED_VERSION" || { echo "tarball version $PACKED_VERSION does not match tag $TAG"; exit 1; }
+          echo "EXPECTED_INTEGRITY=sha512-$(openssl dgst -sha512 -binary "$TGZ" | base64 -w0)" >> "$GITHUB_ENV"
+      - name: Publish the exact verified bytes
+        run: |
+          cd rc
+          npm publish "./$(ls -1 -- *.tgz)" --provenance --access public
+      - name: Registry integrity matches the published file
+        run: |
+          VERSION="$(jq -r .version package.json)"
+          PUBLISHED=""
+          for attempt in 1 2 3 4 5; do
+            PUBLISHED="$(npm view "@openzeppelin/tron-runtime@$VERSION" dist.integrity 2>/dev/null || true)"
+            [ -n "$PUBLISHED" ] && break
+            sleep 10
+          done
+          test "$PUBLISHED" = "$EXPECTED_INTEGRITY" || { echo "registry integrity '$PUBLISHED' does not match the published file '$EXPECTED_INTEGRITY'"; exit 1; }
