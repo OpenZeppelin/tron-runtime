@@ -341,14 +341,17 @@ export async function buildCreate(tronWeb: TronWeb, options: BuildCreateOptions,
 /**
  * Build and sign a native `TriggerSmartContract` (contract call) transaction.
  *
- * Uses the injected TronWeb's transaction builder, which contacts the node to
- * prebuild and pre-validate the call, then signs it locally.
+ * Uses the injected TronWeb's transaction builder with `txLocal: true`, so the
+ * transaction is constructed **locally** and only its returned wrapper shape is
+ * checked — there is **no node execution / pre-validation** of the call (TronWeb
+ * may still fetch reference-block params, so it is not fully offline). Then signs
+ * it locally.
  *
  * @param tronWeb - A TronWeb instance bound to the target node.
  * @param options - Call inputs — see {@link BuildCallOptions}.
  * @param signer - Signing key + fee limit — see {@link Signer}.
  * @returns The signed, broadcastable transaction — see {@link BuiltTransaction}.
- * @throws If the signer or options are invalid, or the node reports the call prebuild failed.
+ * @throws If the signer or options are invalid, or the local prebuild returns an unusable wrapper.
  */
 export async function buildCall(tronWeb: TronWeb, options: BuildCallOptions, signer: Signer): Promise<BuiltTransaction> {
   const { privateKey, feeLimit } = assertSigner(signer);
@@ -375,7 +378,7 @@ export async function buildCall(tronWeb: TronWeb, options: BuildCallOptions, sig
   return signBuiltTransaction(tronWeb, (wrapper as { transaction?: unknown }).transaction, privateKey);
 }
 
-// ── Public API — transport-error classification (pure) ──────────────────────────
+// ── Internal helpers — transport-error classification ──────────────────────────
 
 const RETRYABLE_NETWORK_CODES = new Set([
   'EAI_AGAIN',
@@ -398,6 +401,8 @@ function numericHttpStatus(error: Record<string, unknown>): number | undefined {
   }
   return undefined;
 }
+
+// ── Public API — transport-error classification (pure) ──────────────────────────
 
 /**
  * Classify whether a transport/node error is transient and worth retrying, rather
