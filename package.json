@@ -1,6 +1,6 @@
 {
   "name": "@openzeppelin/tron-runtime",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.0",
   "description": "Shared stateless native-TRON transport primitives for OpenZeppelin TRON tooling",
   "license": "MIT",
   "repository": {
