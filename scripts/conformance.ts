@@ -3,8 +3,8 @@
 //
 // Exercises the extracted primitives against a REAL java-tron node: build + sign
 // through the injected TronWeb, broadcast the exact signed bytes, confirm the node
-// computes the SAME txid, require a SUCCESSFUL deploy, and normalize a NON-EMPTY
-// real internal-transaction trace.
+// computes the SAME txid, require a SUCCESSFUL deploy, and decode a NON-EMPTY real
+// internal-transaction trace through the shared receipt primitive.
 //
 // NON-SKIPPABLE: exits 1 if a TRE endpoint is unreachable.
 // Pinned authority: tronbox/tre@sha256:e57deeb0d8201498549dbec28e7c329d8647ef0976b547cfbb6fa6a41a10f491
@@ -17,7 +17,7 @@ import { TronWeb } from 'tronweb';
 // `typeof import('../src/index')` cast keeps compile-time types bound to source
 // (so typecheck still covers this script) without importing source at runtime.
 // `npm run conformance` builds `dist` first, so this resolves.
-const { buildCreate, nativeTxIdFromSignedBytes, normalizeInternalTransactions } =
+const { buildCreate, nativeTxIdFromSignedBytes, decodeInternalTransactionNote, toEvmAddress } =
   require('@openzeppelin/tron-runtime') as typeof import('../src/index');
 
 const RPC = process.env.TRON_RPC_URL;
@@ -85,33 +85,28 @@ async function main(): Promise<void> {
   // succeeds and one that reverts — so this trace has a fixed, asserted shape.
   assert.equal(internal.length, 2, `expected exactly two internal CREATEs; got ${internal.length}`);
 
-  // 5. normalize the REAL trace and validate the canonical fields
-  const normalized = normalizeInternalTransactions(internal);
-  assert.equal(normalized.length, internal.length, 'normalization keeps every entry (no classification/filtering)');
-  for (const tx of normalized) {
-    assert.match(tx.hash, /^0x[0-9a-f]{64}$/, 'internal-tx hash normalized to 0x + 32 bytes');
-    assert.match(tx.callerAddress, /^0x[0-9a-f]{40}$/, 'caller normalized to an EVM address');
-    assert.match(tx.transferToAddress, /^0x[0-9a-f]{40}$/, 'created child normalized to an EVM address');
-    assert.equal(tx.decodedNote, 'create', `expected a decoded CREATE note; got ${String(tx.decodedNote)}`);
-    assert.ok(Array.isArray(tx.callValueInfo), 'callValueInfo normalized to an array');
+  // 5. decode the REAL trace through the shared receipt primitive and validate the
+  // raw per-entry fields the consumers actually read (traces stay raw by design —
+  // classification and any further shaping are consumer policy, not the runtime's).
+  const rawEntries = internal as Array<Record<string, unknown>>;
+  for (const raw of rawEntries) {
+    assert.match(String(raw.hash), /^(?:0x)?[0-9a-f]{64}$/i, 'internal-tx hash is 32 bytes of hex');
+    assert.match(toEvmAddress(String(raw.caller_address)), /^0x[0-9a-f]{40}$/, 'caller converts to an EVM address');
+    assert.match(toEvmAddress(String(raw.transferTo_address)), /^0x[0-9a-f]{40}$/, 'created child converts to an EVM address');
+    assert.equal(decodeInternalTransactionNote(raw.note), 'create', `expected a decoded CREATE note; got ${String(raw.note)}`);
+    assert.ok(raw.rejected === undefined || typeof raw.rejected === 'boolean', 'rejected marker is boolean when present');
   }
-  // The rejected marker MUST be mapped per-entry — not merely counted. Correlate
-  // each normalized entry back to its RAW entry by hash and assert
-  // `valid === (rejected !== true)`. A reversed mapper (`valid = rejected === true`)
-  // would satisfy a bare valid/invalid count but FAILS this correlation.
-  for (const raw of internal as Array<Record<string, unknown>>) {
-    const rawHash = `0x${String(raw.hash).replace(/^0x/i, '').toLowerCase()}`;
-    const match = normalized.find((tx) => tx.hash === rawHash);
-    assert.ok(match, `no normalized entry correlates to raw hash ${String(raw.hash)}`);
-    assert.equal(match.valid, raw.rejected !== true, `valid must equal (rejected !== true) for ${rawHash}`);
-  }
-  // The factory produces exactly one accepted + one rejected CREATE.
-  assert.equal(normalized.filter((tx) => tx.valid).length, 1, 'expected exactly one accepted internal CREATE');
-  assert.equal(normalized.filter((tx) => !tx.valid).length, 1, 'expected exactly one rejected internal CREATE');
+  // The decoder fails closed on an absent note (what consumers rely on to reject
+  // malformed entries) — assert it against the same live-node payload shape.
+  assert.equal(decodeInternalTransactionNote((rawEntries[0] as { missing?: unknown }).missing), null, 'absent note decodes to null');
+  // The factory produces exactly one accepted + one rejected CREATE — read the raw
+  // `rejected` markers per-entry, exactly as the consumers do.
+  assert.equal(rawEntries.filter((raw) => raw.rejected !== true).length, 1, 'expected exactly one accepted internal CREATE');
+  assert.equal(rawEntries.filter((raw) => raw.rejected === true).length, 1, 'expected exactly one rejected internal CREATE');
 
   console.log(`✓ live-TRE conformance passed against ${base}`);
   console.log(
-    `  runtime txid: ${built.nativeTransactionId} · deploy: ${String(info.receipt?.result)} · internal txns normalized: ${normalized.length}`,
+    `  runtime txid: ${built.nativeTransactionId} · deploy: ${String(info.receipt?.result)} · internal txns decoded: ${rawEntries.length}`,
   );
 }
 
