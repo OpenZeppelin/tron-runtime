@@ -48,11 +48,14 @@ Each export carries TSDoc (parameters / return value / thrown errors) your edito
 | `retryableTransportError(error)` | Heuristic: is a transport/node error transient and retryable? |
 | `normalizeAddress(a)` | Return all three address forms at once: `{ evm, tronHex, base58 }`. |
 | `nativeContractAddress(txid, owner)` | Derive the address a native deploy creates. |
-| `normalizeInternalTransaction(s)(…)` | Normalize a receipt's internal-tx trace (shape under cross-consumer redesign). |
 
 Types (provisional alongside their functions): `NormalizedAddress`,
-`BuiltTransaction`, `Signer`, `BuildCreateOptions`, `BuildCallOptions`,
-`NormalizedInternalTransaction`.
+`BuiltTransaction`, `Signer`, `BuildCreateOptions`, `BuildCallOptions`.
+
+Receipt traces stay **raw** by design: the package decodes internal-transaction
+notes (`decodeInternalTransactionNote`) and stops there — each consumer keeps its
+own receipt wrapper and its own classification policy, so no full-trace
+normalizer is exported.
 
 ## Design
 

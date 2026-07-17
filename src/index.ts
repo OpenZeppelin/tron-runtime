@@ -23,9 +23,7 @@ export { decodeInternalTransactionNote } from './receipt';
 // ── Provisional — may change/relocate/be removed before a stable 0.1.0 ──
 export { normalizeAddress, nativeContractAddress } from './address';
 export { buildCreate, buildCall, signBuiltTransaction, retryableTransportError } from './tx';
-export { normalizeInternalTransaction, normalizeInternalTransactions } from './receipt';
 
 // ── Public types (each provisional alongside its function) ──
 export type { NormalizedAddress } from './address';
 export type { BuiltTransaction, Signer, BuildCreateOptions, BuildCallOptions } from './tx';
-export type { NormalizedInternalTransaction } from './receipt';

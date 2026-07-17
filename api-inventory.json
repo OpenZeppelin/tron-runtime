@@ -14,16 +14,13 @@
     { "name": "buildCreate", "tier": "provisional", "evidence": "gateway class-method today; option shape unproven by a consumer PR" },
     { "name": "buildCall", "tier": "provisional", "evidence": "gateway class-method today; option shape unproven by a consumer PR" },
     { "name": "signBuiltTransaction", "tier": "provisional", "evidence": "internal composition step; no external consumer yet" },
-    { "name": "retryableTransportError", "tier": "provisional", "evidence": "policy-adjacent; hardhat uses a different heuristic" },
-    { "name": "normalizeInternalTransaction", "tier": "provisional", "evidence": "shape breaks hardhat; demote/redesign before release" },
-    { "name": "normalizeInternalTransactions", "tier": "provisional", "evidence": "shape breaks hardhat; demote/redesign before release" }
+    { "name": "retryableTransportError", "tier": "provisional", "evidence": "policy-adjacent; hardhat uses a different heuristic" }
   ],
   "types": [
     { "name": "NormalizedAddress", "tier": "provisional" },
     { "name": "BuiltTransaction", "tier": "provisional" },
     { "name": "Signer", "tier": "provisional" },
     { "name": "BuildCreateOptions", "tier": "provisional" },
-    { "name": "BuildCallOptions", "tier": "provisional" },
-    { "name": "NormalizedInternalTransaction", "tier": "provisional" }
+    { "name": "BuildCallOptions", "tier": "provisional" }
   ]
 }

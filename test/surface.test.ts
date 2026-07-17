@@ -11,7 +11,6 @@ import type {
   Signer,
   BuildCreateOptions,
   BuildCallOptions,
-  NormalizedInternalTransaction,
 } from '../src/index';
 
 const EXPECTED_FUNCTIONS = [
@@ -22,8 +21,6 @@ const EXPECTED_FUNCTIONS = [
   'nativeContractAddress',
   'nativeTxIdFromSignedBytes',
   'normalizeAddress',
-  'normalizeInternalTransaction',
-  'normalizeInternalTransactions',
   'retryableTransportError',
   'serializeSignedTransaction',
   'signBuiltTransaction',
@@ -32,18 +29,9 @@ const EXPECTED_FUNCTIONS = [
   'toTronHexAddress',
 ].sort();
 
-test('public export set is exactly the declared surface (15 functions)', () => {
+test('public export set is exactly the declared surface (13 functions)', () => {
   const actual = Object.keys(api).sort(); // ALL value exports, not just functions
   assert.deepEqual(actual, EXPECTED_FUNCTIONS);
-});
-
-test('decodeInternalTransactionNote decodes hex, passes non-hex through, fails closed on non-strings', () => {
-  assert.equal(api.decodeInternalTransactionNote('637265617465'), 'create'); // hex("create")
-  assert.equal(api.decodeInternalTransactionNote('0x637265617465'), 'create'); // tolerates 0x prefix
-  assert.equal(api.decodeInternalTransactionNote('create'), 'create'); // non-hex passthrough
-  assert.equal(api.decodeInternalTransactionNote(undefined), null);
-  assert.equal(api.decodeInternalTransactionNote(123), null);
-  assert.equal(api.decodeInternalTransactionNote(null), null);
 });
 
 // Reference the imported types so tsc genuinely checks them (erased at runtime).
@@ -53,5 +41,4 @@ type _PublicTypeSurface = [
   Signer,
   BuildCreateOptions,
   BuildCallOptions,
-  NormalizedInternalTransaction,
 ];
