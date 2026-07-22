@@ -105,7 +105,16 @@ jobs:
       - name: Publish the exact verified bytes
         run: |
           cd rc
-          npm publish "./$(ls -1 -- *.tgz)" --provenance --access public
+          TGZ="$(ls -1 -- *.tgz)"
+          VERSION="$(tar -xzOf "$TGZ" package/package.json | jq -r .version)"
+          # npm >= 11 requires an explicit --tag for prerelease versions so a
+          # prerelease never silently takes over the `latest` dist-tag. Route
+          # prereleases (a version containing `-`) to `next`; stable versions
+          # publish to the default `latest`.
+          case "$VERSION" in
+            *-*) npm publish "$TGZ" --provenance --access public --tag next ;;
+            *)   npm publish "$TGZ" --provenance --access public ;;
+          esac
       - name: Registry integrity matches the published file
         run: |
           VERSION="$(jq -r .version package.json)"
