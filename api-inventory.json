@@ -9,18 +9,18 @@
     { "name": "nativeTxIdFromSignedBytes", "tier": "stable", "evidence": "sha256(raw_data); deterministic vectors + live-TRE" },
     { "name": "jsonParseBigSafe", "tier": "stable", "evidence": "hardhat has an established equivalent; compat exercise: parsed-value equivalence on representative TVM-shaped payloads (not captured real fixtures)" },
     { "name": "decodeInternalTransactionNote", "tier": "stable", "evidence": "shared receipt primitive; classifies nothing" },
-    { "name": "normalizeAddress", "tier": "provisional", "evidence": "aggregate convenience; no consumer import yet" },
-    { "name": "nativeContractAddress", "tier": "provisional", "evidence": "Foundry-only; hardhat trusts TronWeb's contract_address" },
-    { "name": "buildCreate", "tier": "provisional", "evidence": "gateway class-method today; option shape unproven by a consumer PR" },
-    { "name": "buildCall", "tier": "provisional", "evidence": "gateway class-method today; option shape unproven by a consumer PR" },
-    { "name": "signBuiltTransaction", "tier": "provisional", "evidence": "internal composition step; no external consumer yet" },
-    { "name": "retryableTransportError", "tier": "provisional", "evidence": "policy-adjacent; hardhat uses a different heuristic" }
+    { "name": "normalizeAddress", "tier": "stable", "evidence": "consumed by foundry-upgrades-tron rpc-src/address-codec.ts; exercised by live-TRE e2e" },
+    { "name": "nativeContractAddress", "tier": "stable", "evidence": "consumed by foundry-upgrades-tron rpc-src/address-codec.ts; deploy-address derivation proven by live-TRE e2e" },
+    { "name": "buildCreate", "tier": "stable", "evidence": "consumed by foundry-upgrades-tron rpc-src/tron-client.ts; option shape proven by live-TRE deploy e2e" },
+    { "name": "buildCall", "tier": "stable", "evidence": "consumed by foundry-upgrades-tron rpc-src/tron-client.ts; option shape proven by live-TRE upgrade e2e" },
+    { "name": "signBuiltTransaction", "tier": "stable", "evidence": "consumed by foundry-upgrades-tron rpc-src/tron-client.ts; sign+broadcast path proven by live-TRE e2e" },
+    { "name": "retryableTransportError", "tier": "stable", "evidence": "consumed by foundry-upgrades-tron rpc-src/tron-client.ts retry loop" }
   ],
   "types": [
-    { "name": "NormalizedAddress", "tier": "provisional" },
-    { "name": "BuiltTransaction", "tier": "provisional" },
-    { "name": "Signer", "tier": "provisional" },
-    { "name": "BuildCreateOptions", "tier": "provisional" },
-    { "name": "BuildCallOptions", "tier": "provisional" }
+    { "name": "NormalizedAddress", "tier": "stable" },
+    { "name": "BuiltTransaction", "tier": "stable" },
+    { "name": "Signer", "tier": "stable" },
+    { "name": "BuildCreateOptions", "tier": "stable" },
+    { "name": "BuildCallOptions", "tier": "stable" }
   ]
 }
