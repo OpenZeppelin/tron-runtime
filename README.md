@@ -13,8 +13,10 @@ internal transactions; each consumer keeps those, because Foundry waits for
 solidified inclusion while `hardhat-tron` uses unconfirmed receipts and
 recovery-mines on TRE.
 
-> **Status: `0.1.0`** — pre-1.0 but stable: every export below is a settled
-> contract covered by semver (breaking changes only with a version bump).
+> **Status: `0.1.0`** — stable. Every export below is a settled contract: no
+> experimental or provisional exports. The `0.x` major means the API may still
+> evolve, but a breaking change only ships in a minor bump (`0.2.0`) with a
+> changelog entry — patch releases (`0.1.x`) never break existing callers.
 > Published to npm with build provenance. Requires Node **`>=22`**.
 
 ## Public API
